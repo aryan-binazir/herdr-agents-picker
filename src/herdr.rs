@@ -88,10 +88,7 @@ pub struct Agent {
 }
 
 impl Agent {
-    /// `herdr agent focus` resolves
-    /// `pane_id` targets (`terminal_id` started returning `agent_not_found`
-    /// on Herdr 0.7.5); `terminal_id` is kept as a fallback for older
-    /// Herdr builds or agents Herdr reports without a `pane_id`.
+    /// Herdr 0.9.1 agent focus accepts pane IDs, not terminal IDs.
     pub fn target(&self) -> Option<&str> {
         non_empty(self.pane_id.as_deref()).or_else(|| non_empty(self.terminal_id.as_deref()))
     }

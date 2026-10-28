@@ -94,8 +94,6 @@ fn run_picker() -> ExitCode {
     }
 }
 
-/// Runs until the user picks an agent (returns its target) or cancels
-/// (returns None). The agent list refreshes periodically.
 fn event_loop(
     terminal: &mut DefaultTerminal,
     app: &mut App,

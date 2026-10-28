@@ -170,8 +170,8 @@ def run_case(feature, binary, evidence, case=None):
     def noop_digit(label):
         assert label not in [number for number, _ in rows()], rows()
         text(label)
-        # Wait through an automatic refresh so a delayed dispatch cannot pass.
-        time.sleep(2.3)
+        refresh_observation_seconds = 2.3
+        time.sleep(refresh_observation_seconds)
         no_focus()
         snapshot('unavailable-' + label)
 
