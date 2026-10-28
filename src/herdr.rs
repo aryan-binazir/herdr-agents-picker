@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::Command;
 
 use serde::Deserialize;
 
@@ -88,10 +88,7 @@ pub struct Agent {
 }
 
 impl Agent {
-    /// Focus/read/get target. `herdr agent {focus,get,read}` only resolve
-    /// `pane_id` targets (`terminal_id` started returning `agent_not_found`
-    /// on Herdr 0.7.5); `terminal_id` is kept as a fallback for older
-    /// Herdr builds or agents Herdr reports without a `pane_id`.
+    /// Herdr 0.9.1 agent focus accepts pane IDs, not terminal IDs.
     pub fn target(&self) -> Option<&str> {
         non_empty(self.pane_id.as_deref()).or_else(|| non_empty(self.terminal_id.as_deref()))
     }
@@ -167,30 +164,6 @@ struct AgentListResult {
 pub fn parse_agent_list(raw: &str) -> Result<Vec<Agent>, Error> {
     let response: AgentListResponse = parse_json(raw, "agent list")?;
     Ok(response.result.map(|r| r.agents).unwrap_or_default())
-}
-
-#[derive(Deserialize)]
-struct ReadResponse {
-    result: Option<ReadResult>,
-}
-
-#[derive(Deserialize)]
-struct ReadResult {
-    read: Option<ReadPayload>,
-}
-
-#[derive(Deserialize)]
-struct ReadPayload {
-    text: Option<String>,
-}
-
-pub fn parse_read_text(raw: &str) -> Result<String, Error> {
-    let response: ReadResponse = parse_json(raw, "read")?;
-    Ok(response
-        .result
-        .and_then(|r| r.read)
-        .and_then(|r| r.text)
-        .unwrap_or_default())
 }
 
 fn parse_json<'a, T: Deserialize<'a>>(raw: &'a str, what: &'static str) -> Result<T, Error> {
@@ -353,12 +326,6 @@ impl Client {
         WorkspaceIndex::parse(&workspaces, &tabs)
     }
 
-    pub fn read_agent(&self, target: &str) -> Result<String, Error> {
-        parse_read_text(&self.run(&[
-            "agent", "read", target, "--source", "visible", "--format", "ansi",
-        ])?)
-    }
-
     /// Herdr 0.9.0 renders the UI in each client, and `agent focus` alone only
     /// moves the server-side pane focus — the viewing client stays where it
     /// is. Switching its workspace and tab first is what actually navigates.
@@ -370,22 +337,6 @@ impl Client {
             self.run(&["tab", "focus", tab_id])?;
         }
         self.run(&["agent", "focus", &focus.target]).map(|_| ())
-    }
-
-    pub fn observe_agent(&self, target: &str, columns: u16, rows: u16) -> Result<Child, Error> {
-        Command::new(&self.bin)
-            .args(["terminal", "session", "observe", target, "--cols"])
-            .arg(columns.to_string())
-            .arg("--rows")
-            .arg(rows.to_string())
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|source| Error::Spawn {
-                bin: self.bin.clone(),
-                source,
-            })
     }
 
     fn run(&self, args: &[&str]) -> Result<String, Error> {
@@ -470,18 +421,13 @@ mod tests {
     }
 
     #[test]
-    fn parses_empty_and_read_payloads() {
+    fn parses_empty_agent_list() {
         assert!(
             parse_agent_list(r#"{"result":{"agents":[]}}"#)
                 .unwrap()
                 .is_empty()
         );
         assert!(parse_agent_list("not json").is_err());
-        assert_eq!(
-            parse_read_text(r#"{"result":{"read":{"text":"hello"}}}"#).unwrap(),
-            "hello"
-        );
-        assert_eq!(parse_read_text(r#"{"result":{}}"#).unwrap(), "");
     }
 
     #[test]

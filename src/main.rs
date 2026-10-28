@@ -2,7 +2,6 @@ mod app;
 mod fuzzy;
 mod herdr;
 mod order;
-mod preview;
 mod ui;
 
 use std::env;
@@ -11,7 +10,6 @@ use std::time::{Duration, Instant};
 
 use ratatui::DefaultTerminal;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
-use ratatui::layout::Rect;
 
 use app::{App, Mode};
 use herdr::{Agent, Client};
@@ -19,7 +17,6 @@ use herdr::{Agent, Client};
 /// Redraw cadence; the spinner frame advances independently at Herdr's ~8fps.
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
 const LIST_REFRESH: Duration = Duration::from_secs(2);
-const RESIZE_SETTLE: Duration = Duration::from_millis(150);
 
 fn main() -> ExitCode {
     let argument = env::args().nth(1);
@@ -97,35 +94,18 @@ fn run_picker() -> ExitCode {
     }
 }
 
-/// Runs until the user picks an agent (returns its target) or cancels
-/// (returns None). The agent list refreshes periodically; preview frames stream
-/// from the selected agent.
 fn event_loop(
     terminal: &mut DefaultTerminal,
     app: &mut App,
     client: &Client,
 ) -> std::io::Result<Option<herdr::Focus>> {
     let mut listed_at = Instant::now();
-    let mut preview = preview::Controller::new();
-    let size = terminal.size()?;
-    let mut preview_size = ui::preview_dimensions(Rect::new(0, 0, size.width, size.height));
-    let mut pending_resize: Option<(u16, u16, Instant)> = None;
 
     loop {
-        if let Some((width, height, resized_at)) = pending_resize
-            && resized_at.elapsed() >= RESIZE_SETTLE
-        {
-            preview_size = ui::preview_dimensions(Rect::new(0, 0, width, height));
-            pending_resize = None;
-        }
-        preview.refresh(app, client, preview_size);
         terminal.draw(|frame| ui::draw(frame, app))?;
 
         if event::poll(POLL_INTERVAL)? {
             let next_event = event::read()?;
-            if let Event::Resize(width, height) = next_event {
-                pending_resize = Some((width, height, Instant::now()));
-            }
             if let Event::Key(key) = next_event {
                 if key.kind != KeyEventKind::Press {
                     continue;
@@ -142,6 +122,30 @@ fn event_loop(
                 }
                 match app.mode {
                     Mode::Navigate => match key.code {
+                        KeyCode::Char(digit @ '0'..='9')
+                            if !ctrl
+                                && !key.modifiers.intersects(
+                                    KeyModifiers::ALT
+                                        | KeyModifiers::SUPER
+                                        | KeyModifiers::HYPER
+                                        | KeyModifiers::META,
+                                ) =>
+                        {
+                            let row = if digit == '0' {
+                                9
+                            } else {
+                                digit as usize - '1' as usize
+                            };
+                            if let Some(focus) = app
+                                .visible_rows
+                                .clone()
+                                .nth(row)
+                                .and_then(|position| app.filtered.get(position))
+                                .and_then(|&index| app.agents[index].focus())
+                            {
+                                return Ok(Some(focus));
+                            }
+                        }
                         KeyCode::Esc | KeyCode::Char('q') => return Ok(None),
                         KeyCode::Char('/') => app.enter_search(),
                         KeyCode::Up | KeyCode::Char('k') => app.move_selection(-1),

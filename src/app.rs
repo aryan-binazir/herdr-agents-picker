@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use ratatui::text::Text;
 use ratatui::widgets::TableState;
 
 use crate::fuzzy;
@@ -10,7 +9,6 @@ use crate::herdr::{Agent, AgentPanelSort, WorkspaceIndex};
 struct AgentDisplay {
     location: String,
     label: String,
-    cwd: String,
     search_text: String,
 }
 
@@ -35,9 +33,8 @@ pub struct App {
     /// Indices into `agents`, filter applied, best match first.
     pub filtered: Vec<usize>,
     pub table_state: TableState,
-    pub preview: Text<'static>,
+    pub visible_rows: std::ops::Range<usize>,
     pub error: Option<String>,
-    pub preview_error: Option<String>,
     home: Option<String>,
     /// Our own pane id (`HERDR_PANE_ID`); the picker pane can show up in
     /// `agent list` when opened as a split/tab, and listing itself is noise.
@@ -64,9 +61,8 @@ impl App {
             filter: String::new(),
             filtered: Vec::new(),
             table_state: TableState::default(),
-            preview: Text::default(),
+            visible_rows: 0..0,
             error: None,
-            preview_error: None,
             home,
             self_pane,
             agent_panel_sort: AgentPanelSort::Spaces,
@@ -99,13 +95,6 @@ impl App {
         self.displays
             .get(index)
             .map_or("-", |display| display.label.as_str())
-    }
-
-    /// Cached `Agent::short_cwd` for `agents[index]`.
-    pub fn cwd(&self, index: usize) -> &str {
-        self.displays
-            .get(index)
-            .map_or("-", |display| display.cwd.as_str())
     }
 
     /// Cached matched-char indices into the search text for filtered row
@@ -224,7 +213,6 @@ impl App {
                 AgentDisplay {
                     location,
                     label,
-                    cwd,
                     search_text,
                 }
             })
@@ -565,8 +553,8 @@ mod tests {
             app.push_char(c);
         }
         assert_eq!(
-            (app.label(0), app.cwd(0), app.highlights(0)),
-            ("İ猫", "~/日本", [6, 7, 13].as_slice())
+            (app.label(0), app.highlights(0)),
+            ("İ猫", [6, 7, 13].as_slice())
         );
     }
 }

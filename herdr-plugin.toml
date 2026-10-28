@@ -1,6 +1,6 @@
 id = "yxhta.agents-picker"
 name = "Agents Picker"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.7.2"
 description = "Workspace-picker-style fuzzy picker for Herdr-detected agent panes"
 platforms = ["macos", "linux"]
@@ -26,6 +26,6 @@ command = ["./target/release/agents-picker", "--record-status"]
 id = "picker"
 title = "Agents"
 placement = "popup"
-width = "85%"
-height = "75%"
+width = "95%"
+height = "90%"
 command = ["./target/release/agents-picker"]

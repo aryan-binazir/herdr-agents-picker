@@ -1,21 +1,19 @@
 [package]
 name = "agents-picker"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Workspace-picker-style fuzzy picker for Herdr-detected agent panes"
 license = "MIT"
-repository = "https://github.com/yxhta/herdr-agents-picker"
+repository = "https://github.com/aryan-binazir/herdr-agents-picker"
 readme = "README.md"
 publish = false
 
 [dependencies]
-base64 = "0.22.1"
 ratatui = "0.29"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 toml = "0.8"
-vt100 = "0.15.2"
 
 [lints.rust]
 unsafe_code = "forbid"

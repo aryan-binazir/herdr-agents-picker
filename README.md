@@ -1,20 +1,28 @@
 # agents-picker
 
-Herdr plugin: a workspace-picker-style fuzzy picker for Herdr-detected agent
-panes. Opens as a modal popup, filters as you type, previews the selected
-agent's pane on the right, and focuses it on Enter. Rust + ratatui.
+A full-width thread picker for Herdr, forked from
+[yxhta/herdr-agents-picker](https://github.com/yxhta/herdr-agents-picker).
+Thread names get most of the space. Rows show a number, agent status, thread,
+workspace/tab and agent type. Herdr supplies the single popup border and title.
+There is no terminal preview.
 
-![agents-picker: agent list with status icons on the left, live preview of the selected agent's pane on the right](docs/screenshot.png)
+![Full-width numbered thread picker](docs/screenshot.png)
 
-Each row shows the workspace and tab name exactly as the built-in sidebar's
-"agents" panel does (no raw pane ids). If the picker is opened from inside an
-agent session, that agent starts pre-selected.
+The popup uses 95% width and 90% height, stored in the plugin manifest. If opened
+from an agent session, that agent starts selected.
 
 ## Install
 
 ```sh
-herdr plugin install yxhta/herdr-agents-picker
+herdr plugin install aryan-binazir/herdr-agents-picker --ref <reviewed-commit>
 ```
+
+Replace `<reviewed-commit>` with the deployed commit recorded in your dotfiles
+Herdr `AGENTS.md`. Install on each machine. The plugin ID stays
+`yxhta.agents-picker`, so existing keybindings work. Inspect `herdr plugin list`
+before replacing an existing installation; preserve any local modifications.
+GitHub installs replace in place with rollback on failure. For a local link,
+run `herdr plugin unlink yxhta.agents-picker` before the pinned install.
 
 Requires Herdr 0.7.2+ on macOS or Linux. The install step builds the plugin
 from source (`cargo build --release --locked`), so a Rust toolchain is needed.
@@ -29,6 +37,7 @@ Navigate mode:
 
 | Key         | Action                    |
 | ----------- | ------------------------- |
+| `1`–`9`, `0` | open the correspondingly numbered visible row |
 | `j` / `k`   | move selection            |
 | `↑` / `↓`   | move selection            |
 | `/`         | enter incremental search  |
@@ -48,12 +57,13 @@ Search mode:
 | `ctrl+u`            | clear the filter                  |
 | `ctrl+w`            | delete the last word              |
 
-The agent list refreshes every 2s. The selected agent's preview follows its
-live terminal stream and normally appears within the TUI's 100ms redraw
-cadence. If the stream is unavailable, the picker falls back to a 1s snapshot
-refresh and retries the stream with bounded exponential backoff. A low-frequency
-5s snapshot also guards against a stream that stays open but stops producing
-frames; stream errors are shown in the footer.
+The first ten visible rows are numbered `1` through `9`, then `0`. Scrolling
+and refreshes update those labels. Press a digit to open its current row;
+unavailable digits do nothing. During search, digits are ordinary query text
+and shortcut labels are hidden. Enter opens the selected agent in either mode.
+
+The agent list refreshes every 2s. The selected agent stays selected across
+refreshes and reordering. Spinners redraw every 100ms.
 
 The default list order mirrors Herdr's built-in Agents sidebar and follows
 `ui.agent_panel_sort`: `spaces` keeps workspace/tab/pane grouping, while
@@ -67,7 +77,13 @@ are picked up on the next list refresh.
 The status column mirrors Herdr's built-in Agents sidebar: braille spinner
 (yellow) = working, `◉` (red) = blocked, `●` (teal) = done, `✓` (green) = idle,
 and `○` (dim) = unknown. While searching, fuzzy-matched characters are
-highlighted in the list.
+highlighted in the list. Titles come from the agent name and terminal title
+reported by Herdr. Missing titles show `-`. Search still includes the working
+directory even though it is not displayed, so directory-only matches have no
+visible highlight.
+
+Agent statuses depend on Herdr's integrations. Machine setup, including Pi's
+stock integration, belongs in the dotfiles Herdr `AGENTS.md`.
 
 ## Setup (local checkout)
 
@@ -80,17 +96,17 @@ cargo build --release
 If you use [mise](https://mise.jdx.dev/), `mise install` provides the Rust
 toolchain declared in `mise.toml`.
 
-Link into Herdr once (one-time, like `mise trust`):
+Link only a permanent checkout, after building it:
 
 ```sh
 herdr plugin link "$PWD"
 ```
 
-Keybinding in herdr's `config.toml` (e.g. `prefix+f`):
+Keybinding in herdr's `config.toml` (`prefix+a`):
 
 ```toml
 [[keys.command]]
-key = "prefix+f"
+key = "prefix+a"
 type = "plugin_action"
 command = "yxhta.agents-picker.open"
 description = "agents picker"
@@ -106,18 +122,10 @@ herdr plugin pane open --plugin yxhta.agents-picker --entrypoint picker
 
 - `herdr-plugin.toml` declares a `popup` pane (`picker`) running the TUI and an
   action (`open`) that opens that pane, so a `plugin_action` keybinding works.
-- The TUI talks to the running Herdr instance through the CLI at
-  `HERDR_BIN_PATH`: `agent list` for rows, `workspace list` + `tab list` to
-  resolve each row's workspace/tab name, `terminal session observe` for the
-  live preview, and `agent focus` on Enter (issued after the TUI exits, before
-  the process ends). `agent read` is the preview fallback.
-- Live ANSI frames are decoded on a reader thread into a bounded in-memory
-  terminal screen. Foreground/background colors and text modifiers are
-  preserved in both live and fallback previews. The TUI renders only the newest
-  screen state, so fast agent output cannot build an unbounded update queue.
-- Focus targets prefer `pane_id` over `terminal_id`: `herdr agent
-  {focus,get,read}` only resolve `pane_id` targets as of Herdr 0.7.5, so
-  `terminal_id` is kept only as a fallback for agents without one.
+- The TUI uses `HERDR_BIN_PATH`: `agent list` for rows and `workspace list` /
+  `tab list` for locations. On selection, it restores the terminal and focuses
+  workspace, tab, then agent. `pane_id` is the preferred target; `terminal_id`
+  remains a fallback for older payloads.
 - The workspace/tab label mirrors the built-in sidebar's default agent row:
   workspace name, plus the tab name only when the workspace has more than one
   tab or the tab was given a custom (non-numeric) name.
@@ -139,7 +147,7 @@ cargo run --release --locked --example interaction
 The benchmark prints microseconds per iteration for 20, 200, and 2,000
 synthetic agents. `draw` measures a full frame; `search_draw` also applies
 the filter and computes rankings and highlights. Both validate the result.
-Herdr CLI calls, preview streaming, and terminal I/O are outside the timed region.
+Herdr CLI calls and terminal I/O are outside the timed region.
 Set `PICKER_BENCH_ITERATIONS` to change the default 100 iterations, or
 `PICKER_BENCH_AGENTS` to use a single positive agent count. Compare release
 binaries in alternating order over at least five runs. Report the median
