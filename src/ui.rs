@@ -41,13 +41,13 @@ fn columns(width: u16, app: &App) -> [Constraint; 5] {
     let kind_width = app
         .agents
         .iter()
-        .map(|agent| agent.kind().chars().count())
+        .map(|agent| Line::from(agent.kind()).width())
         .max()
         .unwrap_or(5)
         .max(5);
     let kind_width = u16::try_from(kind_width).unwrap_or(u16::MAX).min(width / 5);
     let location_width = (0..app.agents.len())
-        .map(|index| app.location(index).chars().count())
+        .map(|index| Line::from(app.location(index)).width())
         .max()
         .unwrap_or(9)
         .max(9);

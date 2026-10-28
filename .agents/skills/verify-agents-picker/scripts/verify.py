@@ -37,9 +37,9 @@ def fixture(args):
     if args == ['agent', 'list']:
         result = {'agents': state['agents']}
     elif args == ['workspace', 'list']:
-        result = {'workspaces': [{'workspace_id': 'verify-w', 'label': 'Verify workspace', 'tab_count': 2}]}
+        result = {'workspaces': [{'workspace_id': 'verify-w', 'label': state.get('workspace_label', 'Verify workspace'), 'tab_count': 2}]}
     elif args == ['tab', 'list']:
-        result = {'tabs': [{'tab_id': 'verify-t', 'label': 'Verification checks', 'number': 1}]}
+        result = {'tabs': [{'tab_id': 'verify-t', 'label': state.get('tab_label', 'Verification checks'), 'number': 1}]}
     elif len(args) == 3 and args[0] in ('workspace', 'tab', 'agent') and args[1] == 'focus':
         result = {}
     elif args == ['plugin', 'pane', 'open', '--plugin', 'yxhta.agents-picker', '--entrypoint', 'picker', '--focus']:
@@ -221,6 +221,11 @@ def run_case(feature, binary, evidence, case=None):
             keys('q')
         elif feature == 'launch':
             assert 'Verify workspace · Verification checks' in screen(), 'workspace/tab label is clipped despite spare width'
+            state.update(workspace_label='日本語', tab_label='作業')
+            (scratch / 'fixture.json').write_text(json.dumps(state))
+            keys('r')
+            wait_for('日本語 · 作業')
+            snapshot('wide-workspace-label')
             keys('q')
         elif feature == 'numbers':
             if case == 'empty':
