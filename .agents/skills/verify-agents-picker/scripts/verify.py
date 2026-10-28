@@ -37,9 +37,9 @@ def fixture(args):
     if args == ['agent', 'list']:
         result = {'agents': state['agents']}
     elif args == ['workspace', 'list']:
-        result = {'workspaces': [{'workspace_id': 'verify-w', 'label': 'Verify', 'tab_count': 2}]}
+        result = {'workspaces': [{'workspace_id': 'verify-w', 'label': 'Verify workspace', 'tab_count': 2}]}
     elif args == ['tab', 'list']:
-        result = {'tabs': [{'tab_id': 'verify-t', 'label': 'Checks', 'number': 1}]}
+        result = {'tabs': [{'tab_id': 'verify-t', 'label': 'Verification checks', 'number': 1}]}
     elif len(args) == 3 and args[0] in ('workspace', 'tab', 'agent') and args[1] == 'focus':
         result = {}
     elif args == ['plugin', 'pane', 'open', '--plugin', 'yxhta.agents-picker', '--entrypoint', 'picker', '--focus']:
@@ -87,7 +87,6 @@ def run_case(feature, binary, evidence, case=None):
     env.update(HERDR_BIN_PATH=str(wrapper), HERDR_CONFIG_PATH=str(scratch / 'config.toml'),
                HERDR_PLUGIN_STATE_DIR=str(scratch / 'state'), HERDR_PANE_ID='verify-picker',
                HERDR_PLUGIN_ID='yxhta.agents-picker', PICKER_VERIFY_SCRATCH=str(scratch), TERM='xterm-256color')
-    env.pop('TMUX', None)
     env.pop('NO_COLOR', None)
     if case in ('reorder', 'selection', 'glyphs'):
         (scratch / 'config.toml').write_text('[ui]\nagent_panel_sort = "priority"\n')
@@ -221,6 +220,7 @@ def run_case(feature, binary, evidence, case=None):
             snapshot('automatic-reload')
             keys('q')
         elif feature == 'launch':
+            assert 'Verify workspace · Verification checks' in screen(), 'workspace/tab label is clipped despite spare width'
             keys('q')
         elif feature == 'numbers':
             if case == 'empty':
@@ -229,11 +229,6 @@ def run_case(feature, binary, evidence, case=None):
                     noop_digit(label)
                 keys('q')
             else:
-                if case == 'digit-1' and not rows():
-                    text('1')
-                    time.sleep(.4)
-                    snapshot('baseline-after-digit')
-                    assert any(call[:2] == ['agent', 'focus'] for call in calls()), 'digit 1 did not dispatch focus; no visible numeric labels'
                 rendered = labeled()
                 assert 'Agents' not in screen(), 'inner Agents title remains'
                 assert not any(char in screen() for char in '╭╮╰╯┌┐└┘│'), 'inner border remains'

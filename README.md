@@ -21,6 +21,8 @@ Replace `<reviewed-commit>` with the deployed commit recorded in your dotfiles
 Herdr `AGENTS.md`. Install on each machine. The plugin ID stays
 `yxhta.agents-picker`, so existing keybindings work. Inspect `herdr plugin list`
 before replacing an existing installation; preserve any local modifications.
+GitHub installs replace in place with rollback on failure. For a local link,
+run `herdr plugin unlink yxhta.agents-picker` before the pinned install.
 
 Requires Herdr 0.7.2+ on macOS or Linux. The install step builds the plugin
 from source (`cargo build --release --locked`), so a Rust toolchain is needed.

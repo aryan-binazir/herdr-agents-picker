@@ -46,11 +46,19 @@ fn columns(width: u16, app: &App) -> [Constraint; 5] {
         .unwrap_or(5)
         .max(5);
     let kind_width = u16::try_from(kind_width).unwrap_or(u16::MAX).min(width / 5);
+    let location_width = (0..app.agents.len())
+        .map(|index| app.location(index).chars().count())
+        .max()
+        .unwrap_or(9)
+        .max(9);
+    let location_width = u16::try_from(location_width)
+        .unwrap_or(u16::MAX)
+        .min(width / 4);
     [
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Fill(1),
-        Constraint::Length((width / 5).min(24)),
+        Constraint::Length(location_width),
         Constraint::Length(kind_width),
     ]
 }
@@ -208,8 +216,6 @@ fn hint_line(hints: &[(&'static str, &'static str)]) -> Line<'static> {
     Line::from(spans)
 }
 
-/// Centered placeholder for empty list/preview areas, with an optional dimmed
-/// hint on how to get out of the state.
 fn empty_state(frame: &mut Frame, area: Rect, message: &str, hint: &str) {
     let mut lines = vec![Line::raw(""); usize::from(area.height / 3)];
     lines.push(Line::from(message));

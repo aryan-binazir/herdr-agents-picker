@@ -88,7 +88,7 @@ pub struct Agent {
 }
 
 impl Agent {
-    /// Focus/read/get target. `herdr agent {focus,get,read}` only resolve
+    /// `herdr agent focus` resolves
     /// `pane_id` targets (`terminal_id` started returning `agent_not_found`
     /// on Herdr 0.7.5); `terminal_id` is kept as a fallback for older
     /// Herdr builds or agents Herdr reports without a `pane_id`.

@@ -8,4 +8,4 @@ The executable boundary is the release TUI driven by keys in private tmux. Herdr
 - [Refresh](refresh.md): manual and automatic list updates.
 - [Launch](launch.md): closing and `--open` requests.
 
-Alpha and Beta are the normal fixture, initially idle in Verify / Checks. Numbers uses fourteen distinct threads and terminal titles, with smaller and empty fixtures where needed. Tests never read transcripts. Real popup geometry and real server focus require the separate private-Herdr driver; CLI fixture success does not prove them.
+Alpha and Beta are the normal fixture, initially idle in Verify workspace / Verification checks. Numbers uses fourteen distinct threads and terminal titles, with smaller and empty fixtures where needed. Tests never read transcripts. Real popup geometry and real server focus require the [manual private-Herdr check](launch.md#real-herdr-check); CLI fixture success does not prove them.
