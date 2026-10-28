@@ -1,6 +1,6 @@
 [package]
 name = "agents-picker"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2024"
 description = "Workspace-picker-style fuzzy picker for Herdr-detected agent panes"
 license = "MIT"

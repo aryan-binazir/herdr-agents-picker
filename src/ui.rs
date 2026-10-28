@@ -3,7 +3,7 @@ use ratatui::layout::{Constraint, Layout, Margin, Position, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
-    Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table, TableState,
+    Block, BorderType, Borders, Cell, HighlightSpacing, Padding, Paragraph, Row, Table, TableState,
 };
 
 use crate::app::{App, Mode};
@@ -12,31 +12,40 @@ use crate::app::{App, Mode};
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
-    let [panel_area, _, footer_area] = Layout::vertical([
+    let [
+        search_box,
+        _,
+        heading_area,
+        heading_rule,
+        list_area,
+        footer_rule,
+        footer_area,
+    ] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Length(1),
         Constraint::Min(0),
         Constraint::Length(1),
         Constraint::Length(1),
     ])
     .areas(frame.area().inner(Margin::new(1, 0)));
-    let panel = Block::bordered()
+    let search = Block::bordered()
         .border_type(BorderType::Rounded)
         .border_style(Style::new().dark_gray())
         .padding(Padding::horizontal(1));
-    let content_area = panel.inner(panel_area);
-    frame.render_widget(panel, panel_area);
-    let [input_area, separator_area, heading_area, list_area] = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Min(0),
-    ])
-    .areas(content_area);
-    frame.render_widget(
-        Block::new()
-            .borders(Borders::TOP)
-            .border_style(Style::new().dark_gray()),
-        separator_area,
-    );
+    let input_area = search.inner(search_box);
+    frame.render_widget(search, search_box);
+    for area in [heading_rule, footer_rule] {
+        frame.render_widget(
+            Block::new()
+                .borders(Borders::TOP)
+                .border_style(Style::new().dark_gray()),
+            area,
+        );
+    }
+    let [_, heading_area] =
+        Layout::horizontal([Constraint::Length(2), Constraint::Min(0)]).areas(heading_area);
     let count = format!(" {}/{}", app.filtered.len(), app.agents.len());
     let [search_area, count_area] = Layout::horizontal([
         Constraint::Min(0),
@@ -181,8 +190,10 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
             ])
         });
 
-    let table = Table::new(rows, columns(area.width, app))
+    let table = Table::new(rows, columns(area.width.saturating_sub(2), app))
         .column_spacing(1)
+        .highlight_symbol(Span::styled("▎ ", Style::new().blue()))
+        .highlight_spacing(HighlightSpacing::Always)
         .row_highlight_style(selected_row_style());
 
     frame.render_stateful_widget(table, area, &mut table_state);
@@ -500,16 +511,16 @@ mod tests {
     #[test]
     fn numbers_label_visible_rows_and_disappear_during_search() {
         let mut app = numbered_app();
-        let screen = render(&mut app, 80, 10);
+        let screen = render(&mut app, 80, 11);
         assert!(screen.contains("1 ✓ row-00"));
         assert!(screen.contains("3 ✓ row-02"));
         assert!(!screen.contains("4 ✓"));
         app.move_selection(-1);
-        let screen = render(&mut app, 80, 10);
+        let screen = render(&mut app, 80, 11);
         assert!(screen.contains("1 ✓ row-05"));
         assert!(screen.contains("3 ✓ row-07"));
         app.enter_search();
-        assert!(!render(&mut app, 80, 10).contains("1 ✓"));
+        assert!(!render(&mut app, 80, 11).contains("1 ✓"));
     }
 
     #[test]
@@ -518,14 +529,14 @@ mod tests {
         app.set_agents(parse_agent_list(
             r#"{"result":{"agents":[{"agent":"pi","name":"test","pane_id":"w1:p1","terminal_title_stripped":"π - old automatic title"}]}}"#,
         ).unwrap());
-        let screen = render(&mut app, 100, 8);
+        let screen = render(&mut app, 100, 12);
         assert!(screen.contains("test"));
         assert!(!screen.contains("old automatic title"));
         assert!(!screen.contains("π -"));
     }
 
     #[test]
-    fn rounded_panel_keeps_full_width_titles_and_a_single_outer_title() {
+    fn rounded_search_keeps_the_list_open_and_a_single_outer_title() {
         let mut app = App::new(None, None);
         app.set_agents(parse_agent_list(
             r#"{"result":{"agents":[{"agent":"codex","agent_status":"idle","pane_id":"w1:p1","terminal_title_stripped":"Fix roster eligibility after season rollover"}]}}"#,
@@ -543,8 +554,11 @@ mod tests {
             .map(|row| row.iter().collect())
             .collect();
         assert!(lines[1].contains("/ to filter"));
-        assert!(lines[2].contains("───"));
-        assert!(lines[9].contains('╰'));
+        assert!(lines[2].contains('╰'));
+        assert!(lines[5].contains("───"));
+        assert!(lines[6].contains("▎ 1 ✓"));
+        assert!(!lines[6..10].iter().any(|line| line.contains('│')));
+        assert!(lines[10].contains("───"));
         assert!(lines[11].contains("enter focus"));
         assert!(screen.contains("1/1"));
     }

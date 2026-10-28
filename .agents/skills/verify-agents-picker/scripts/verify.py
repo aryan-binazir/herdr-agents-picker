@@ -150,7 +150,7 @@ def run_case(feature, binary, evidence, case=None):
 
     def rows():
         return [(match.group(1), int(match.group(2))) for line in screen().splitlines()
-                if (match := re.match(r'^\s*│?\s*([0-9]?)\s*[◉●✓○⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s+.*?Thread(\d+)', line))]
+                if (match := re.match(r'^\s*▎?\s*([0-9]?)\s*[◉●✓○⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s+.*?Thread(\d+)', line))]
 
     def labeled():
         rendered = rows()
@@ -236,7 +236,8 @@ def run_case(feature, binary, evidence, case=None):
             else:
                 rendered = labeled()
                 assert 'Agents' not in screen(), 'inner Agents title remains'
-                assert all(screen().count(corner) == 1 for corner in '╭╮╰╯'), 'expected one rounded panel'
+                assert all(screen().count(corner) == 1 for corner in '╭╮╰╯'), 'expected one rounded search box'
+                assert not any('│' in line for line in screen().splitlines() if re.search(r'Thread\d+', line)), 'list must be open'
                 if case.startswith('digit-'):
                     assert len(rendered) >= 10, rendered
                     assert [row for _, row in rendered[:10]] == list(range(1, 11)), rendered
