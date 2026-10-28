@@ -2,7 +2,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Position, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Cell, Paragraph, Row, Table, TableState};
+use ratatui::widgets::{Cell, Paragraph, Row, Table, TableState};
 
 use crate::app::{App, Mode};
 
@@ -10,55 +10,49 @@ use crate::app::{App, Mode};
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
-    let [picker_area, preview_area, footer_area] = areas(frame.area());
-
-    draw_picker(frame, app, picker_area);
-    draw_preview(frame, app, preview_area);
+    let [input_area, heading_area, list_area, footer_area] = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Min(0),
+        Constraint::Length(1),
+    ])
+    .areas(frame.area());
+    let count = format!(" {}/{}", app.filtered.len(), app.agents.len());
+    let [search_area, count_area] = Layout::horizontal([
+        Constraint::Min(0),
+        Constraint::Length(u16::try_from(count.len()).unwrap_or(u16::MAX)),
+    ])
+    .areas(input_area);
+    draw_input(frame, app, search_area);
+    frame.render_widget(Paragraph::new(count).right_aligned().dim(), count_area);
+    frame.render_widget(
+        Table::new(
+            [Row::new(["#", "", "Thread", "Workspace", "Agent"]).style(Style::new().dim())],
+            columns(heading_area.width, app),
+        )
+        .column_spacing(1),
+        heading_area,
+    );
+    draw_list(frame, app, list_area);
     draw_footer(frame, app, footer_area);
 }
 
-fn areas(area: Rect) -> [Rect; 3] {
-    let [main_area, footer_area] =
-        Layout::vertical([Constraint::Min(1), Constraint::Length(1)]).areas(area);
-    let [picker_area, preview_area] =
-        Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
-            .areas(main_area);
-    [picker_area, preview_area, footer_area]
-}
-
-pub fn preview_dimensions(area: Rect) -> (u16, u16) {
-    let [_, preview_area, _] = areas(area);
-    let inner = Block::bordered().inner(preview_area);
-    (inner.width.max(1), inner.height.max(1))
-}
-
-/// Left panel: filter input and agent list inside a single block, so the
-/// picker reads as one surface instead of two stacked boxes.
-fn draw_picker(frame: &mut Frame, app: &mut App, area: Rect) {
-    let count = format!(" {}/{} ", app.filtered.len(), app.agents.len());
-    let block = Block::bordered()
-        .border_type(BorderType::Rounded)
-        .border_style(Style::new().dim())
-        .title(" Agents ")
-        .title(Line::from(count).right_aligned().dim());
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    let [input_area, rule_area, list_area] = Layout::vertical([
+fn columns(width: u16, app: &App) -> [Constraint; 5] {
+    let kind_width = app
+        .agents
+        .iter()
+        .map(|agent| agent.kind().chars().count())
+        .max()
+        .unwrap_or(5)
+        .max(5);
+    let kind_width = u16::try_from(kind_width).unwrap_or(u16::MAX).min(width / 5);
+    [
         Constraint::Length(1),
         Constraint::Length(1),
-        Constraint::Min(1),
-    ])
-    .areas(inner);
-
-    draw_input(frame, app, input_area);
-    frame.render_widget(
-        Block::new()
-            .borders(Borders::TOP)
-            .border_style(Style::new().dim()),
-        rule_area,
-    );
-    draw_list(frame, app, list_area);
+        Constraint::Fill(1),
+        Constraint::Length((width / 5).min(24)),
+        Constraint::Length(kind_width),
+    ]
 }
 
 fn draw_input(frame: &mut Frame, app: &App, area: Rect) {
@@ -83,6 +77,7 @@ fn draw_input(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
+    app.visible_rows = 0..0;
     if area.is_empty() {
         return;
     }
@@ -108,6 +103,9 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
         }
     }
     let end = (start + height).min(app.filtered.len());
+    if app.mode == Mode::Navigate {
+        app.visible_rows = start..end;
+    }
     app.table_state.select(selected);
     *app.table_state.offset_mut() = start;
     let mut table_state = TableState::new()
@@ -123,47 +121,41 @@ fn draw_list(frame: &mut Frame, app: &mut App, area: Rect) {
             let kind = agent.kind();
             let label = app.label(i);
             let location = app.location(i);
-            let cwd = app.cwd(i);
 
             let indices = app.highlights(start + row);
             let label_offset = kind.chars().count() + 1;
             let location_offset = label_offset + label.chars().count() + 1;
-            let cwd_offset = location_offset + location.chars().count() + 1;
 
             let mut label_line = highlight_line(label, label_offset, indices, Style::new());
             if agent.focused {
                 label_line.push_span(Span::styled(" (focused)", Style::new().dim()));
             }
 
+            let shortcut = if app.mode == Mode::Navigate && row < 10 && agent.target().is_some() {
+                ((row + 1) % 10).to_string()
+            } else {
+                String::new()
+            };
             Row::new(vec![
+                Cell::from(Span::styled(shortcut, Style::new().blue())),
                 Cell::from(Span::styled(
                     status_glyph(agent.status(), tick),
                     status_style(agent.status()),
                 )),
+                Cell::from(label_line),
                 Cell::from(highlight_line(
                     location,
                     location_offset,
                     indices,
-                    Style::new(),
+                    Style::new().dim(),
                 )),
                 Cell::from(highlight_line(kind, 0, indices, Style::new().dim())),
-                Cell::from(label_line),
-                Cell::from(highlight_line(cwd, cwd_offset, indices, Style::new().dim())),
             ])
         });
 
-    let table = Table::new(
-        rows,
-        [
-            Constraint::Length(1),
-            Constraint::Fill(2),
-            Constraint::Length(6),
-            Constraint::Fill(3),
-            Constraint::Fill(2),
-        ],
-    )
-    .column_spacing(1)
-    .row_highlight_style(selected_row_style());
+    let table = Table::new(rows, columns(area.width, app))
+        .column_spacing(1)
+        .row_highlight_style(selected_row_style());
 
     frame.render_stateful_widget(table, area, &mut table_state);
     app.table_state.select_column(table_state.selected_column());
@@ -173,42 +165,15 @@ fn selected_row_style() -> Style {
     Style::new().bg(Color::DarkGray)
 }
 
-fn draw_preview(frame: &mut Frame, app: &App, area: Rect) {
-    let block = Block::bordered()
-        .border_type(BorderType::Rounded)
-        .border_style(Style::new().dim());
-    if let Some(index) = app.selected_index() {
-        let agent = &app.agents[index];
-        let title = Line::from(vec![
-            Span::raw(" "),
-            Span::styled(
-                status_glyph(agent.status(), app.spinner_tick()),
-                status_style(agent.status()),
-            ),
-            Span::raw(format!(" {} · {} ", agent.kind(), agent.status())),
-        ]);
-        let cwd = Line::from(format!(" {} ", app.cwd(index)))
-            .right_aligned()
-            .dim();
-        let block = block.title(title).title_bottom(cwd);
-        let inner = block.inner(area);
-        frame.render_widget(block, area);
-        frame.render_widget(&app.preview, inner);
-    } else {
-        let inner = block.inner(area);
-        frame.render_widget(block.title(Line::from(" Preview ").dim()), area);
-        empty_state(frame, inner, "Nothing to preview", "");
-    }
-}
-
 fn draw_footer(frame: &mut Frame, app: &App, area: Rect) {
-    let line = match app.error.as_ref().or(app.preview_error.as_ref()) {
+    let line = match app.error.as_ref() {
         Some(error) => Line::from(vec![
             Span::styled(" ✗ ", Style::new().fg(Color::Red).bold()),
             Span::styled(error.as_str(), Style::new().fg(Color::Red)),
         ]),
         None => match app.mode {
             Mode::Navigate => hint_line(&[
+                ("1-9/0", "open row"),
                 ("enter", "focus"),
                 ("j/k", "move"),
                 ("/", "filter"),
@@ -315,7 +280,6 @@ mod tests {
     use crate::herdr::parse_agent_list;
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
-    use ratatui::text::Text;
 
     fn sample_app() -> App {
         let agents = parse_agent_list(
@@ -508,6 +472,34 @@ mod tests {
     }
 
     #[test]
+    fn numbers_label_visible_rows_and_disappear_during_search() {
+        let mut app = numbered_app();
+        let screen = render(&mut app, 80, 6);
+        assert!(screen.contains("1 ✓ row-00"));
+        assert!(screen.contains("3 ✓ row-02"));
+        assert!(!screen.contains("4 ✓"));
+        app.move_selection(-1);
+        let screen = render(&mut app, 80, 6);
+        assert!(screen.contains("1 ✓ row-05"));
+        assert!(screen.contains("3 ✓ row-07"));
+        app.enter_search();
+        assert!(!render(&mut app, 80, 6).contains("1 ✓"));
+    }
+
+    #[test]
+    fn thread_titles_use_the_full_popup_without_an_inner_frame() {
+        let mut app = App::new(None, None);
+        app.set_agents(parse_agent_list(
+            r#"{"result":{"agents":[{"agent":"codex","agent_status":"idle","pane_id":"w1:p1","terminal_title_stripped":"Fix roster eligibility after season rollover"}]}}"#,
+        ).unwrap());
+        let screen = render(&mut app, 80, 12);
+        assert!(screen.contains("Fix roster eligibility after season rollover"));
+        assert!(!screen.contains("Agents"));
+        assert!(!screen.chars().any(|c| "│─╭╮╰╯┌┐└┘".contains(c)));
+        assert!(screen.contains("1/1"));
+    }
+
+    #[test]
     fn draws_the_agent_list_with_status_and_count() {
         let mut app = sample_app();
         let screen = render(&mut app, 200, 20);
@@ -550,7 +542,6 @@ mod tests {
         let mut app = App::new(None, None);
         let screen = render(&mut app, 100, 20);
         assert!(screen.contains("No agent panes found"));
-        assert!(screen.contains("Nothing to preview"));
 
         let mut app = sample_app();
         app.enter_search();
@@ -582,36 +573,9 @@ mod tests {
     }
 
     #[test]
-    fn preview_dimensions_match_the_odd_width_layout() {
-        assert_eq!(preview_dimensions(Rect::new(0, 0, 81, 24)), (38, 21));
-    }
-
-    #[test]
-    fn preview_renders_the_stored_terminal_style() {
+    fn list_error_is_visible_in_the_footer() {
         let mut app = sample_app();
-        app.preview = Text::styled(
-            "X",
-            Style::new()
-                .fg(Color::Indexed(1))
-                .bg(Color::Rgb(1, 2, 3))
-                .bold(),
-        );
-        let mut terminal = Terminal::new(TestBackend::new(100, 20)).unwrap();
-        let frame = terminal.draw(|frame| draw(frame, &mut app)).unwrap();
-        let [_, preview_area, _] = areas(Rect::new(0, 0, 100, 20));
-        let position = Block::bordered().inner(preview_area).as_position();
-        let cell = frame.buffer.cell(position).unwrap();
-
-        assert_eq!(
-            (cell.symbol(), cell.fg, cell.bg, cell.modifier),
-            ("X", Color::Indexed(1), Color::Rgb(1, 2, 3), Modifier::BOLD,)
-        );
-    }
-
-    #[test]
-    fn preview_error_is_visible_in_the_footer() {
-        let mut app = sample_app();
-        app.preview_error = Some("live preview unavailable: unsupported command".to_string());
+        app.error = Some("agent list failed: unsupported command".to_string());
 
         assert!(render(&mut app, 120, 20).contains("unsupported command"));
     }
