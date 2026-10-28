@@ -111,15 +111,34 @@ impl Agent {
         non_empty(self.agent_status.as_deref()).unwrap_or("unknown")
     }
 
-    /// User-assigned agent name plus the terminal title, when both exist.
     pub fn label(&self) -> String {
-        let name = non_empty(self.name.as_deref());
-        let title = non_empty(self.terminal_title_stripped.as_deref());
-        match (name, title) {
-            (Some(name), Some(title)) => format!("{name} · {title}"),
-            (Some(name), None) => name.to_string(),
-            (None, Some(title)) => title.to_string(),
-            (None, None) => "-".to_string(),
+        if let Some(name) = self.name.as_deref().filter(|name| !name.trim().is_empty()) {
+            return name.to_string();
+        }
+        let mut title = self.terminal_title_stripped.as_deref().unwrap_or("").trim();
+        let brands: &[&str] = match self.kind() {
+            "pi" => &["π", "Pi"],
+            "claude" => &["Claude Code", "Claude"],
+            "codex" => &["Codex"],
+            _ => &[],
+        };
+        for brand in brands {
+            if title.eq_ignore_ascii_case(brand) {
+                title = "";
+                break;
+            }
+            if title
+                .get(..brand.len())
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(brand))
+                && let Some(rest) = title[brand.len()..].trim_start().strip_prefix('-')
+            {
+                title = rest.trim();
+                break;
+            }
+        }
+        match title {
+            "" | "-" => "Untitled thread".to_string(),
+            _ => title.to_string(),
         }
     }
 
@@ -399,10 +418,47 @@ mod tests {
     }
 
     #[test]
-    fn label_combines_name_and_title() {
-        let agents = parse_agent_list(SAMPLE).unwrap();
-        assert_eq!(agents[0].label(), "agents-picker plugin");
-        assert_eq!(agents[1].label(), "impl-1.2");
+    fn labels_use_names_then_clean_titles_then_a_shared_default() {
+        for (kind, name, title, expected) in [
+            ("pi", None, Some("π - Fix roster"), "Fix roster"),
+            ("pi", None, Some("pi-Fix roster"), "Fix roster"),
+            (
+                "claude",
+                None,
+                Some("Claude Code - Fix roster"),
+                "Fix roster",
+            ),
+            ("codex", None, Some("Codex - Fix roster"), "Fix roster"),
+            ("pi", None, Some("Pi"), "Untitled thread"),
+            ("pi", None, Some("π - "), "Untitled thread"),
+            ("claude", None, Some("Claude Code"), "Untitled thread"),
+            ("codex", None, Some("Codex"), "Untitled thread"),
+            ("codex", None, None, "Untitled thread"),
+            ("codex", None, Some("-"), "Untitled thread"),
+            ("codex", None, Some("  "), "Untitled thread"),
+            (
+                "pi",
+                Some("Pi - my name"),
+                Some("π - old title"),
+                "Pi - my name",
+            ),
+            ("claude", Some("test"), Some("Claude Code"), "test"),
+            ("codex", Some("  "), Some("Useful title"), "Useful title"),
+            ("pi", None, Some("Pilot feature"), "Pilot feature"),
+            ("pi", None, Some("Fix pi - parsing"), "Fix pi - parsing"),
+            (
+                "other",
+                None,
+                Some("Pi - useful title"),
+                "Pi - useful title",
+            ),
+        ] {
+            let payload = serde_json::json!({"result":{"agents":[{
+                "agent":kind,"name":name,"terminal_title_stripped":title
+            }]}});
+            let agents = parse_agent_list(&payload.to_string()).unwrap();
+            assert_eq!(agents[0].label(), expected, "{payload}");
+        }
     }
 
     #[test]

@@ -493,6 +493,18 @@ mod tests {
     }
 
     #[test]
+    fn explicit_thread_names_replace_automatic_titles() {
+        let mut app = App::new(None, None);
+        app.set_agents(parse_agent_list(
+            r#"{"result":{"agents":[{"agent":"pi","name":"test","pane_id":"w1:p1","terminal_title_stripped":"π - old automatic title"}]}}"#,
+        ).unwrap());
+        let screen = render(&mut app, 100, 8);
+        assert!(screen.contains("test"));
+        assert!(!screen.contains("old automatic title"));
+        assert!(!screen.contains("π -"));
+    }
+
+    #[test]
     fn thread_titles_use_the_full_popup_without_an_inner_frame() {
         let mut app = App::new(None, None);
         app.set_agents(parse_agent_list(

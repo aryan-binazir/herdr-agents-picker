@@ -8,7 +8,7 @@ There is no terminal preview.
 
 ![Full-width numbered thread picker](docs/screenshot.png)
 
-The popup uses 95% width and 90% height, stored in the plugin manifest. If opened
+The popup uses 95% width and 60% height, stored in the plugin manifest. If opened
 from an agent session, that agent starts selected.
 
 ## Install
@@ -77,10 +77,11 @@ are picked up on the next list refresh.
 The status column mirrors Herdr's built-in Agents sidebar: braille spinner
 (yellow) = working, `◉` (red) = blocked, `●` (teal) = done, `✓` (green) = idle,
 and `○` (dim) = unknown. While searching, fuzzy-matched characters are
-highlighted in the list. Titles come from the agent name and terminal title
-reported by Herdr. Missing titles show `-`. Search still includes the working
-directory even though it is not displayed, so directory-only matches have no
-visible highlight.
+highlighted in the list. Explicit names replace automatic titles and are kept
+verbatim. Otherwise, the picker uses the session title with known agent prefixes
+such as `π -` removed. Missing titles and agent-only titles show `Untitled thread`.
+Search still includes the working directory even though it is not displayed,
+so directory-only matches have no visible highlight.
 
 Agent statuses depend on Herdr's integrations. Machine setup, including Pi's
 stock integration, belongs in the dotfiles Herdr `AGENTS.md`.

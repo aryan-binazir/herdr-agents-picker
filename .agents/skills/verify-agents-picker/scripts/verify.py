@@ -272,7 +272,7 @@ def run_case(feature, binary, evidence, case=None):
                 elif case == 'search-digits':
                     keys('/')
                     text('10')
-                    wait_for('2/14')
+                    wait_for('1/14')
                     wait_for('Thread10')
                     no_focus()
                     snapshot('search-digits')
@@ -315,7 +315,7 @@ def run_case(feature, binary, evidence, case=None):
                         frames.update(char for char in screen() if char in '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏')
                         time.sleep(.12)
                     assert len(frames) > 1, frames
-                    assert 'Title01' in screen(), 'terminal_title_stripped missing alongside name'
+                    assert 'Title01' not in screen(), 'automatic title must not be appended to an explicit name'
                     first = next(line for line in screen().splitlines() if 'Thread01' in line)
                     assert first.index('Thread01') < first.index('Verify') < first.index('codex'), first
                     assert '/verify' not in screen(), 'obsolete cwd column remains'
