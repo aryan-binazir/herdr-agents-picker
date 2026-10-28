@@ -150,7 +150,7 @@ def run_case(feature, binary, evidence, case=None):
 
     def rows():
         return [(match.group(1), int(match.group(2))) for line in screen().splitlines()
-                if (match := re.match(r'^\s*([0-9]?)\s*[◉●✓○⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s+.*?Thread(\d+)', line))]
+                if (match := re.match(r'^\s*│?\s*([0-9]?)\s*[◉●✓○⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s+.*?Thread(\d+)', line))]
 
     def labeled():
         rendered = rows()
@@ -236,7 +236,7 @@ def run_case(feature, binary, evidence, case=None):
             else:
                 rendered = labeled()
                 assert 'Agents' not in screen(), 'inner Agents title remains'
-                assert not any(char in screen() for char in '╭╮╰╯┌┐└┘│'), 'inner border remains'
+                assert all(screen().count(corner) == 1 for corner in '╭╮╰╯'), 'expected one rounded panel'
                 if case.startswith('digit-'):
                     assert len(rendered) >= 10, rendered
                     assert [row for _, row in rendered[:10]] == list(range(1, 11)), rendered
@@ -246,7 +246,7 @@ def run_case(feature, binary, evidence, case=None):
                         noop_digit(label)
                     digit('2')
                 elif case == 'tiny':
-                    tmux('resize-window', '-t', 'verify', '-x', '100', '-y', '7')
+                    tmux('resize-window', '-t', 'verify', '-x', '100', '-y', '11')
                     time.sleep(.25)
                     snapshot('small-viewport')
                     assert 0 < len(labeled()) < 9, rows()
@@ -280,7 +280,7 @@ def run_case(feature, binary, evidence, case=None):
                     wait_for('14/14')
                     digit('2')
                 elif case in ('scroll', 'resize'):
-                    tmux('resize-window', '-t', 'verify', '-x', '100', '-y', '9')
+                    tmux('resize-window', '-t', 'verify', '-x', '100', '-y', '13')
                     time.sleep(.2)
                     for _ in range(11):
                         keys('j')
@@ -288,7 +288,7 @@ def run_case(feature, binary, evidence, case=None):
                     snapshot('scrolled')
                     assert labeled()[0][1] > 1, rows()
                     if case == 'resize':
-                        tmux('resize-window', '-t', 'verify', '-x', '120', '-y', '7')
+                        tmux('resize-window', '-t', 'verify', '-x', '120', '-y', '11')
                         time.sleep(.25)
                         snapshot('resized')
                     digit('2')

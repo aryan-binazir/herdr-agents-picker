@@ -15,7 +15,7 @@ python3 .agents/skills/verify-agents-picker/scripts/verify.py run numbers --evid
 
 The public recipes are `search`, `navigation`, `numbers`, `refresh`, and `launch`. Give each a new evidence directory. Use `--binary /absolute/path/agents-picker` to pin another build. `doctor` reports its path, SHA-256, help, and tmux version. Python 3 and tmux are required; no Python packages are needed.
 
-The picker is one full-width list with number, status, thread, workspace, and agent columns. Thread gets most width. Herdr supplies the outer `Agents` title and 95% by 60% popup. The picker draws no interior border or preview. Explicit names take precedence over normalized terminal titles; terminal reads and observe requests fail verification.
+The picker is one full-width list with number, status, thread, workspace, and agent columns. Thread gets most width. Herdr supplies the outer `Agents` title and 95% by 60% popup. One untitled rounded panel contains search and rows; keyboard hints sit below. There is no preview. Explicit names take precedence over normalized terminal titles; terminal reads and observe requests fail verification.
 
 Each case owns a fresh tmux socket, configuration, fixture, and plugin state directory. It never connects to user Herdr or tmux. Socket denial requires rerunning the same isolated command with suitable permissions, never substituting a live session. `fixture` and `child` are internal commands.
 

@@ -1,8 +1,10 @@
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Layout, Position, Rect};
+use ratatui::layout::{Constraint, Layout, Margin, Position, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Cell, Paragraph, Row, Table, TableState};
+use ratatui::widgets::{
+    Block, BorderType, Borders, Cell, Padding, Paragraph, Row, Table, TableState,
+};
 
 use crate::app::{App, Mode};
 
@@ -10,13 +12,31 @@ use crate::app::{App, Mode};
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
-    let [input_area, heading_area, list_area, footer_area] = Layout::vertical([
+    let [panel_area, _, footer_area] = Layout::vertical([
+        Constraint::Min(0),
+        Constraint::Length(1),
+        Constraint::Length(1),
+    ])
+    .areas(frame.area().inner(Margin::new(1, 0)));
+    let panel = Block::bordered()
+        .border_type(BorderType::Rounded)
+        .border_style(Style::new().dark_gray())
+        .padding(Padding::horizontal(1));
+    let content_area = panel.inner(panel_area);
+    frame.render_widget(panel, panel_area);
+    let [input_area, separator_area, heading_area, list_area] = Layout::vertical([
+        Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Min(0),
-        Constraint::Length(1),
     ])
-    .areas(frame.area());
+    .areas(content_area);
+    frame.render_widget(
+        Block::new()
+            .borders(Borders::TOP)
+            .border_style(Style::new().dark_gray()),
+        separator_area,
+    );
     let count = format!(" {}/{}", app.filtered.len(), app.agents.len());
     let [search_area, count_area] = Layout::horizontal([
         Constraint::Min(0),
@@ -75,7 +95,7 @@ fn draw_input(frame: &mut Frame, app: &App, area: Rect) {
         ]),
     };
     frame.render_widget(Paragraph::new(line), area);
-    if app.mode == Mode::Search {
+    if app.mode == Mode::Search && !area.is_empty() {
         let filter_width = u16::try_from(app.filter.chars().count()).unwrap_or(u16::MAX);
         frame.set_cursor_position(Position::new(
             area.x.saturating_add(2).saturating_add(filter_width),
@@ -480,16 +500,16 @@ mod tests {
     #[test]
     fn numbers_label_visible_rows_and_disappear_during_search() {
         let mut app = numbered_app();
-        let screen = render(&mut app, 80, 6);
+        let screen = render(&mut app, 80, 10);
         assert!(screen.contains("1 ✓ row-00"));
         assert!(screen.contains("3 ✓ row-02"));
         assert!(!screen.contains("4 ✓"));
         app.move_selection(-1);
-        let screen = render(&mut app, 80, 6);
+        let screen = render(&mut app, 80, 10);
         assert!(screen.contains("1 ✓ row-05"));
         assert!(screen.contains("3 ✓ row-07"));
         app.enter_search();
-        assert!(!render(&mut app, 80, 6).contains("1 ✓"));
+        assert!(!render(&mut app, 80, 10).contains("1 ✓"));
     }
 
     #[test]
@@ -505,7 +525,7 @@ mod tests {
     }
 
     #[test]
-    fn thread_titles_use_the_full_popup_without_an_inner_frame() {
+    fn rounded_panel_keeps_full_width_titles_and_a_single_outer_title() {
         let mut app = App::new(None, None);
         app.set_agents(parse_agent_list(
             r#"{"result":{"agents":[{"agent":"codex","agent_status":"idle","pane_id":"w1:p1","terminal_title_stripped":"Fix roster eligibility after season rollover"}]}}"#,
@@ -513,7 +533,19 @@ mod tests {
         let screen = render(&mut app, 80, 12);
         assert!(screen.contains("Fix roster eligibility after season rollover"));
         assert!(!screen.contains("Agents"));
-        assert!(!screen.chars().any(|c| "│─╭╮╰╯┌┐└┘".contains(c)));
+        for corner in "╭╮╰╯".chars() {
+            assert_eq!(screen.matches(corner).count(), 1);
+        }
+        let lines: Vec<String> = screen
+            .chars()
+            .collect::<Vec<_>>()
+            .chunks(80)
+            .map(|row| row.iter().collect())
+            .collect();
+        assert!(lines[1].contains("/ to filter"));
+        assert!(lines[2].contains("───"));
+        assert!(lines[9].contains('╰'));
+        assert!(lines[11].contains("enter focus"));
         assert!(screen.contains("1/1"));
     }
 

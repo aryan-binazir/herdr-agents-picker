@@ -3,8 +3,9 @@
 A full-width thread picker for Herdr, forked from
 [yxhta/herdr-agents-picker](https://github.com/yxhta/herdr-agents-picker).
 Thread names get most of the space. Rows show a number, agent status, thread,
-workspace/tab and agent type. Herdr supplies the single popup border and title.
-There is no terminal preview.
+workspace/tab and agent type. Herdr supplies the outer popup border and single
+`Agents` title. A rounded inner panel groups search and threads, with keyboard
+hints below. There is no terminal preview.
 
 ![Full-width numbered thread picker](docs/screenshot.png)
 
